@@ -1,6 +1,10 @@
 from openpyxl import load_workbook
 import os.path
 import sys
+import re
+import textract
+import win32com.client
+
 
 
 class JS:
@@ -18,10 +22,10 @@ class JS:
         # print(resume_path)
         if os.path.exists(f'{resume_path}.doc'):
             self.resume = os.path.abspath(f'{resume_path}.doc')
-            print(self.resume)
+            # print(type(self.resume))
         elif os.path.exists(f'{resume_path}.pdf'):
             self.resume = os.path.abspath(f'{resume_path}.pdf')
-            print(self.resume)
+            # print(type(self.resume))
         else:
             print('Nope')
 
@@ -60,6 +64,7 @@ class Base:
             aspirant.search_resume()
             proc_asp = Processing(aspirant)
             # print(proc_asp.last_name)
+            proc_asp.process_contacts(aspirant)
 
 
 class Processing(object):
@@ -69,7 +74,7 @@ class Processing(object):
         self.middle_name = None
         self.money = object.money
 
-        print(self.money)
+        # print(self.money)
 
 
     def process_name(self,object):
@@ -81,7 +86,28 @@ class Processing(object):
 
     def process_contacts(self, object):
         path = object.resume
-
+        # path_split = os.path.split(path)
+        # path_head = path_split[0]
+        # path_tail = path_split[1].split()
+        # new_name = ''
+        # for i in path_tail:
+        #     new_name = new_name + i
+        # path_new = os.path.join(path_head, new_name)
+        #
+        # copy_str = f'copy "{path}" "{path_new}"'
+        # print(copy_str)
+        # os.system(copy_str)
+        # os.system('copy "' + path + '" ' + path_new)
+        # str = textract.process(path_new)
+        # email_regezp = r"^[A-Za-z0-9\.\+_-]+@[A-Za-z0-9\._-]+\.[a-zA-Z]*$"
+        # email_search = re.findall(email_regezp, str)
+        # print(email_search)
+        antiword_str = f'antiword "{path}" > "{path}x"'
+        print(antiword_str)
+        os.system(antiword_str)
+        # with open(path_x) as f:
+        #     text = f.read()
+        #     print(text)
 
 
 

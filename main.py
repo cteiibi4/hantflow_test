@@ -3,8 +3,17 @@ import os.path
 import sys
 import re
 import textract
-import win32com.client
-
+import subprocess
+import PyPDF4
+from pdfminer.converter import TextConverter
+from pdfminer.layout import LAParams
+from pdfminer.pdfdocument import PDFDocument
+from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
+from pdfminer.pdfpage import PDFPage
+from pdfminer.pdfparser import PDFParser
+from io import StringIO
+from datetime import datetime
+import calendar
 
 
 class JS:
@@ -73,7 +82,9 @@ class Processing(object):
         self.first_name = None
         self.middle_name = None
         self.money = object.money
-
+        self.text_resume = ''
+        self.number = None
+        self.email = None
         # print(self.money)
 
 
@@ -85,31 +96,70 @@ class Processing(object):
             middle_name = full_name[2]
 
     def process_contacts(self, object):
-        path = object.resume
-        # path_split = os.path.split(path)
-        # path_head = path_split[0]
-        # path_tail = path_split[1].split()
-        # new_name = ''
-        # for i in path_tail:
-        #     new_name = new_name + i
-        # path_new = os.path.join(path_head, new_name)
-        #
-        # copy_str = f'copy "{path}" "{path_new}"'
-        # print(copy_str)
-        # os.system(copy_str)
-        # os.system('copy "' + path + '" ' + path_new)
-        # str = textract.process(path_new)
-        # email_regezp = r"^[A-Za-z0-9\.\+_-]+@[A-Za-z0-9\._-]+\.[a-zA-Z]*$"
-        # email_search = re.findall(email_regezp, str)
-        # print(email_search)
-        antiword_str = f'antiword "{path}" > "{path}x"'
-        print(antiword_str)
-        os.system(antiword_str)
-        # with open(path_x) as f:
-        #     text = f.read()
-        #     print(text)
-
-
+        path = os.path.normpath(object.resume)
+        soffice = os.path.normpath('"C:\Program Files (x86)\OpenOffice 4\program\soffice.exe"')
+        if path.endswith('.doc'):
+            prog = subprocess.Popen(['runas', '/user:Admin', soffice, '--headless', '--convert-to', 'docx', path])
+            prog.communicate()
+            print(1)
+            # path_split = os.path.split(path)
+            # path_head = path_split[0]
+            # path_tail = path_split[1].split()
+            # new_name = ''
+            # for i in path_tail:
+            #     new_name = new_name + i
+            # path_new = os.path.join(path_head, new_name)
+            #
+            # copy_str = f'copy "{path}" "{path_new}"'
+            # print(copy_str)
+            # os.system(copy_str)
+            # os.system('copy "' + path + '" ' + path_new)
+            # str = textract.process(path_new)
+            # email_regezp = r"^[A-Za-z0-9\.\+_-]+@[A-Za-z0-9\._-]+\.[a-zA-Z]*$"
+            # email_search = re.findall(email_regezp, str)
+            # print(email_search)
+            # antiword_str = f'antiword "{path}" > "{path}x"'
+            # print(antiword_str)
+            # os.system(antiword_str)
+            # with open(path_x) as f:
+            #     text = f.read()
+            #     print(text)
+        elif path.endswith('.pdf'):
+            output_string = StringIO()
+            with open(path, 'rb') as in_file:
+                parser = PDFParser(in_file)
+                doc = PDFDocument(parser)
+                rsrcmgr = PDFResourceManager()
+                device = TextConverter(rsrcmgr, output_string, laparams=LAParams())
+                interpreter = PDFPageInterpreter(rsrcmgr, device)
+                for page in PDFPage.create_pages(doc):
+                    interpreter.process_page(page)
+            self.text_resume = output_string.getvalue()
+            self.number = re.search(r'(\+7|8).*?(\d{3}).*?(\d{3}).*?(\d{2}).*?(\d{2})', self.text_resume)
+            regex = re.compile(("([a-z0-9!#$%&'*+\/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+\/=?^_`"
+                                "{|}~-]+)*(@|\sat\s)(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(\.|"
+                                "\sdot\s))+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)"))
+            self.email = re.search(regex, self.text_resume)
+            full_date = re.search(r'(\d{2}(\-| |\/)(\d{2}|января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря)(\-| |\/)\d{4})', self.text_resume)
+            if full_date != None:
+                date = full_date.group().split()
+                self.birthday_day = date[0]
+                RU_MONTH_VALUES = {
+                    'января': 1,
+                    'февраля': 2,
+                    'марта': 3,
+                    'апреля': 4,
+                    'мая': 5,
+                    'июня': 6,
+                    'июля': 7,
+                    'августа': 8,
+                    'сентября': 9,
+                    'октября': 10,
+                    'ноября': 11,
+                    'декабря': 12,}
+                month = date[1]
+                self.birthday_month = RU_MONTH_VALUES.get(month)
+                self.birthday_year = date[2]
 
 class New_JS(object):
 

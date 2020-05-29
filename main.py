@@ -4,7 +4,7 @@ import sys
 import re
 import textract
 import subprocess
-import PyPDF4
+import fitz
 from pdfminer.converter import TextConverter
 from pdfminer.layout import LAParams
 from pdfminer.pdfdocument import PDFDocument
@@ -12,6 +12,7 @@ from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.pdfpage import PDFPage
 from pdfminer.pdfparser import PDFParser
 from io import StringIO
+
 from datetime import datetime
 import calendar
 
@@ -74,10 +75,12 @@ class Base:
             proc_asp = Processing(aspirant)
             # print(proc_asp.last_name)
             proc_asp.process_contacts(aspirant)
+            proc_asp.get_image()
 
 
 class Processing(object):
     def __init__(self, object):
+        self.full_name = object.name
         self.last_name = None
         self.first_name = None
         self.middle_name = None
@@ -85,6 +88,7 @@ class Processing(object):
         self.text_resume = ''
         self.number = None
         self.email = None
+        self.path = os.path.normpath(object.resume)
         # print(self.money)
 
 
@@ -161,6 +165,21 @@ class Processing(object):
                 self.birthday_month = RU_MONTH_VALUES.get(month)
                 self.birthday_year = date[2]
 
+    def get_image(self):
+        path = self.path
+        if path.endswith('.pdf'):
+            pdf = fitz.open(self.path)
+            for i in range(len(pdf)):
+                for img in pdf.getPageImageList(i):
+                    xref = img[0]
+                    pix = fitz.Pixmap(pdf, xref)
+                    if pix.n < 5:   # this is GRAY or RGB
+                        pix.writePNG(f"{self.path[:-4]}_{i}{xref}.png")
+                    else:  # CMYK: convert to RGB first
+                        pix1 = fitz.Pixmap(fitz.csRGB, pix)
+                        pix1.writePNG(f"{self.path[:-4]}_{i}{xref}.png")
+                        pix1 = None
+                    pix = None
 class New_JS(object):
 
     def create_json(self):

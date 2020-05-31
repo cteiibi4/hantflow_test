@@ -37,10 +37,10 @@ class JS:
         # print(resume_path)
         if os.path.exists(f'{resume_path}.doc'):
             self.resume = os.path.abspath(f'{resume_path}.doc')
-            print(self.resume)
+            # print(self.resume)
         elif os.path.exists(f'{resume_path}.pdf'):
             self.resume = os.path.abspath(f'{resume_path}.pdf')
-            print(self.resume)
+            # print(self.resume)
         else:
             print('Nope')
 
@@ -81,34 +81,34 @@ class Base:
             proc_asp.process_name()
             proc_asp.process_contacts()
             proc_asp.get_image()
-            proc_asp.get_birthday_date()
             proc_asp.get_contacnts()
+            proc_asp.get_birthday_date()
+            proc_asp.add_in_base()
 
 
 class Processing(object):
     def __init__(self, object):
+        self.comment = object.comment
+        self.status = object.status
+        self.position = object.position
         self.full_name = object.name
-        self.last_name = None
-        self.first_name = None
-        self.middle_name = None
         self.money = object.money
         self.text_resume = ''
-        self.number = None
-        self.email = None
-        self.image = None
         if object.resume != None:
             self.path = os.path.normpath(object.resume)
         # print(self.money)
-        else:
-            self.path = None
+        self.job_seeker = {}
 
 
     def process_name(self):
         full_name = self.full_name.split()
         self.last_name = full_name[0]
         self.first_name = full_name[1]
+        # self.job_seeker.update({'last name': self.last_name})
+        # self.job_seeker.update({'first name': self.first_name})
         if len(full_name) > 2:
             self.middle_name = full_name[2]
+            # self.job_seeker.update({'middle_name': self.middle_name})
 
     def process_contacts(self):
         if self.path != None:
@@ -196,15 +196,21 @@ class Processing(object):
             month = date[1]
             self.birthday_month = RU_MONTH_VALUES.get(month)
             self.birthday_year = date[2]
-            print(self.birthday_day, self.birthday_month, self.birthday_year)
+            # self.job_seeker.update({'birthday_day': self.birthday_day})
+            # self.job_seeker.update({'birthday_month': self.birthday_month})
+            # self.job_seeker.update({'birthday_year': self.birthday_year})
+        else:
+            self.birthday_day = None
 
     def get_contacnts(self):
         self.number = re.search(r'(\+7|8).*?(\d{3}).*?(\d{3}).*?(\d{2}).*?(\d{2})', self.text_resume)
         regex = re.compile(("([a-z0-9!#$%&'*+\/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+\/=?^_`"
-                            "{|}~-]+)*(@|\sat\s)(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(\.|"
-                            "\sdot\s))+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)"))
+                                "{|}~-]+)*(@|\sat\s)(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(\.|"
+                                "\sdot\s))+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)"))
         self.email = re.search(regex, self.text_resume)
-        print(self.number, self.email)
+        # if self.email != None:
+        #     self.job_seeker.update({'phone': self.number.group(0)})
+        #     self.job_seeker.update({'email': self.email.group(0)})
 
     def get_image(self):
         if self.path != None:
@@ -225,15 +231,62 @@ class Processing(object):
                             pix1 = None
                         pix = None
 
-class New_JS(object):
+    def add_in_base(self):
+        self.job_seeker.update({'last_name': self.last_name})
+        self.job_seeker.update({'first_name': self.first_name})
+        if len(self.full_name.split()) > 2:
+            self.job_seeker.update({'middle_name': self.middle_name})
+        self.job_seeker.update({"position": self.position})
+        self.job_seeker.update({"money": self.money})
+        if self.email != None:
+            self.job_seeker.update({'phone': self.number.group(0)})
+            self.job_seeker.update({'email': self.email.group(0)})
+        if self.birthday_day != None:
+            self.job_seeker.update({'birthday_day': self.birthday_day})
+            self.job_seeker.update({'birthday_month': self.birthday_month})
+            self.job_seeker.update({'birthday_year': self.birthday_year})
+        self.job_seeker.update({"externals":[{
+                    "data": {
+                        "body": self.text_resume
+                    },
+                    "auth_type": "NATIVE",
+                    "files": [
+                        {
+                            "id": 12430
+                        }
+                    ],
+                    "account_source": 119
+                }]
+        })
+        # Added job seeker in base
+        head = {
+            'User-Agent': 'App/1.0 (test@huntflow.ru)',
+            'Host': 'api.huntflow.ru',
+            'Authorization': token}
+        url = base_url + 'account/6/upload'
+        job_seeker_json = json.dumps(self.job_seeker, ensure_ascii=True)
+        response = requests.post(url, headers=head, data=job_seeker_json)
+        json_responce = response.json()
+        self.man_id = json_responce['id']
+        # get vacancy list and id vacancy
+        url_vac = base_url + 'account/6/vacancies'
+        response = requests.get(url_vac, headers=head)
+        json_responce = response.json()
+        for i in json_responce.get('items'):
+            if self.position == i.get('position'):
+                id_vacancy = i.get('id')
+            else:
+                print('Not Vacancy') # Need added code for create new vacancy
+        #
 
-    def create_json(self):
-        pass
+
 
 
 
 
 if __name__ == '__main__':
+    token = 'Bearer 71e89e8af02206575b3b4ae80bf35b6386fe3085af3d4085cbc7b43505084482'
+    base_url = 'https://dev-100-api.huntflow.ru/'
     path = './task/Тестовое задание/Тестовая база.xlsx'
     new_path = os.path.basename(path)
     os.chdir(os.path.dirname(path))

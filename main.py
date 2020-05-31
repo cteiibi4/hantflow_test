@@ -115,7 +115,7 @@ class Processing(object):
             if self.path.endswith('.doc'):
                 try:
                     SCOPES = ['https://www.googleapis.com/auth/drive']
-                    SERVICE_ACCOUNT_FILE = 'F:\hantflow_test\my-python-api-278708-2604d6b4e17e.json'
+                    SERVICE_ACCOUNT_FILE = f'{start_dir}\my-python-api-278708-2604d6b4e17e.json'
 
                     credentials = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
                     service = build('drive', 'v3', credentials=credentials)
@@ -327,18 +327,12 @@ class Processing(object):
         response = requests.post(url_add_on_vacancy, headers=head, data=vacancy_add) # add client on vacancy with status
         # json_responce = response.json()
 
-
-
-
-
-
-
-
-
 if __name__ == '__main__':
-    token = 'Bearer 71e89e8af02206575b3b4ae80bf35b6386fe3085af3d4085cbc7b43505084482'
+    input_token = f'{sys.argv[2]}'
+    path = sys.argv[1]
+    start_dir = os.getcwd()
+    token = f'Bearer {input_token}'
     base_url = 'https://dev-100-api.huntflow.ru/'
-    path = './task/Тестовое задание/Тестовая база.xlsx'
     new_path = os.path.basename(path)
     os.chdir(os.path.dirname(path))
     base = Base(new_path)

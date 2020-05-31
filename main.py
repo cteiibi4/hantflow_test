@@ -232,6 +232,7 @@ class Processing(object):
                         pix = None
 
     def add_in_base(self):
+        global id_vacancy
         self.job_seeker.update({'last_name': self.last_name})
         self.job_seeker.update({'first_name': self.first_name})
         if len(self.full_name.split()) > 2:
@@ -263,10 +264,11 @@ class Processing(object):
             'User-Agent': 'App/1.0 (test@huntflow.ru)',
             'Host': 'api.huntflow.ru',
             'Authorization': token}
-        url = base_url + 'account/6/upload'
+        url = base_url + 'account/6/applicants'
         job_seeker_json = json.dumps(self.job_seeker, ensure_ascii=True)
         response = requests.post(url, headers=head, data=job_seeker_json)
         json_responce = response.json()
+
         self.man_id = json_responce['id']
         # get vacancy list and id vacancy
         url_vac = base_url + 'account/6/vacancies'
@@ -275,9 +277,58 @@ class Processing(object):
         for i in json_responce.get('items'):
             if self.position == i.get('position'):
                 id_vacancy = i.get('id')
-            else:
-                print('Not Vacancy') # Need added code for create new vacancy
-        #
+                print(id_vacancy)
+            # Need added code for create new vacancy
+        # get dict with vacancy status
+        url_vac_stat = base_url + 'account/6/vacancy/statuses'
+        response = requests.get(url_vac_stat, headers=head)
+        json_responce = response.json()
+        id = []
+        name = []
+        for i in json_responce.get('items'):
+            id.append(i.get('id'))
+            name.append(i.get('name'))
+        dict_vacancy = dict(zip(name, id))
+        # dict for translate vacancy
+        dict_status_vacancy = {
+            'Отправлено письмо': 'Submitted',
+            'Интервью с HR': 'HR Interview',
+            'Выставлен оффер': 'Offered',
+            'Отказ': 'Declined',
+        }
+        status = dict_status_vacancy.get(self.status)
+        print(status)
+        status_id = dict_vacancy.get(status)    # take number status vacancy
+
+        if status == 'Declined':
+            add_on_vacancy = {
+                'vacancy': id_vacancy,
+                'status': status_id,
+                'files': [
+                    {
+                        'id': 1234856
+                    }
+                ],
+                "rejection_reason": self.comment
+            }
+        else:
+            add_on_vacancy = {
+                'vacancy': id_vacancy,
+                'status': status_id,
+                'comment':self.comment,
+                'files': [
+                    {
+                        'id': 1234856
+                    }
+                ]
+            }
+        vacancy_add = json.dumps(add_on_vacancy)
+        url_add_on_vacancy = f'{base_url}account/6/applicants/{self.man_id}/vacancy'
+        response = requests.post(url_add_on_vacancy, headers=head, data=vacancy_add) # add client on vacancy with status
+        # json_responce = response.json()
+
+
+
 
 
 

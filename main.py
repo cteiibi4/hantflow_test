@@ -1,10 +1,13 @@
-from openpyxl import load_workbook
 import os.path
 import sys
 import re
-import textract
-import subprocess
 import fitz
+import io
+import json
+import requests
+from openpyxl import load_workbook
+from bs4 import BeautifulSoup
+from urllib.request import urlretrieve
 from pdfminer.converter import TextConverter
 from pdfminer.layout import LAParams
 from pdfminer.pdfdocument import PDFDocument
@@ -15,8 +18,7 @@ from io import StringIO
 from google.oauth2 import service_account
 from googleapiclient.http import MediaIoBaseDownload, MediaFileUpload
 from googleapiclient.discovery import build
-import pprint
-import io
+
 
 
 
@@ -76,10 +78,11 @@ class Base:
             aspirant = JS(*i)
             aspirant.search_resume()
             proc_asp = Processing(aspirant)
-            print(proc_asp.full_name)
             proc_asp.process_name()
             proc_asp.process_contacts()
             proc_asp.get_image()
+            proc_asp.get_birthday_date()
+            proc_asp.get_contacnts()
 
 
 class Processing(object):
@@ -92,6 +95,7 @@ class Processing(object):
         self.text_resume = ''
         self.number = None
         self.email = None
+        self.image = None
         if object.resume != None:
             self.path = os.path.normpath(object.resume)
         # print(self.money)
@@ -109,52 +113,48 @@ class Processing(object):
     def process_contacts(self):
         if self.path != None:
             if self.path.endswith('.doc'):
-                pp = pprint.PrettyPrinter(indent=4)
-                SCOPES = ['https://www.googleapis.com/auth/drive']
-                SERVICE_ACCOUNT_FILE = 'F:\hantflow_test\my-python-api-278708-2604d6b4e17e.json'
+                try:
+                    SCOPES = ['https://www.googleapis.com/auth/drive']
+                    SERVICE_ACCOUNT_FILE = 'F:\hantflow_test\my-python-api-278708-2604d6b4e17e.json'
 
-                credentials = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
-                service = build('drive', 'v3', credentials=credentials)
+                    credentials = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+                    service = build('drive', 'v3', credentials=credentials)
 
-                results = service.files().list(
-                    pageSize=100,
-                    fields="nextPageToken, files(id, name, mimeType, parents, createdTime)",
-                    q="name contains 'data'").execute()
-                pp.pprint(results['files'])
-                # path = os.path.normpath(r'F:\hantflow_test\task\Тестовое задание\Менеджер по продажам\Шорин Андрей.pdf')
-                file_metadata = {'name': 'test',
-                                 'mimeType': 'application/vnd.google-apps.document'
-                                 }
-                media = MediaFileUpload(self.path, mimetype='application/msword', resumable=True)
-                file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
-                # File ID: 1eDjlhB-679FYneLYhECdWWTP0EdIidwm
-                # file_mime = file.get('mimeType')
-                file_id = file.get('id')
-                # file_name = file.get('name')
-                # print(file_id, file_mime, file_name)
-                request = service.files().export_media(fileId=file_id,
-                                                       mimeType='text/html'
-                                                       )
-                filename = f'{self.path[:-3]}html'
-                fh = io.FileIO(filename, 'wb')
-                downloader = MediaIoBaseDownload(fh, request)
-                done = False
-                while done is False:
-                    status, done = downloader.next_chunk()
-                    print("Download %d%%." % int(status.progress() * 100))
-                # docx_path = self.path + 'x'
-                # if not os.path.exists(docx_path):
-                #     comand = f'antiword "{self.path}" > "{docx_path}"'
-                #     os.system(comand)
-                #     with open(docx_path) as f:
-                #         text = f.read()
-                #         # print(text)
-                # else:
-                #     # already a file with same name as doc exists having docx extension,
-                #     # which means it is a different file, so we cant read it
-                #     print('Info : file with same name of doc exists having docx extension, so we cant read it')
-                #     text = ''
-                # return text
+                    results = service.files().list(
+                        pageSize=100,
+                        fields="nextPageToken, files(id, name, mimeType, parents, createdTime)",
+                        q="name contains 'data'").execute()
+                    file_metadata = {'name': 'test',
+                                     'mimeType': 'application/vnd.google-apps.document'
+                                     }
+                    media = MediaFileUpload(self.path, mimetype='application/msword', resumable=True)
+                    file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+                    file_id = file.get('id')
+                    request = service.files().export_media(fileId=file_id,
+                                                           mimeType='text/html'
+                                                           )
+                    filename = f'{self.path[:-3]}html'
+                    fh = io.FileIO(filename, 'wb')
+                    downloader = MediaIoBaseDownload(fh, request)
+                    done = False
+                    while done is False:
+                        status, done = downloader.next_chunk()
+                        print("Download %d%%." % int(status.progress() * 100))
+                    with open(filename, 'r') as f:
+                        contents = f.read()
+                        soup = BeautifulSoup(contents, 'lxml')
+                        text = soup.find_all('p')
+                        img = soup.img['src']
+                        full_text = ''
+                        for i in text:
+                            if i.text != '':
+                                full_text = full_text + '\n' + i.text
+                        self.text_resume = full_text
+                        self.image = f'{filename[:-4]}.jpg'
+                        urlretrieve(img, self.image)
+                except:
+                    pass
+
             elif self.path.endswith('.pdf'):
                 output_string = StringIO()
                 with open(self.path, 'rb') as in_file:
@@ -166,31 +166,45 @@ class Processing(object):
                     for page in PDFPage.create_pages(doc):
                         interpreter.process_page(page)
                 self.text_resume = output_string.getvalue()
-                self.number = re.search(r'(\+7|8).*?(\d{3}).*?(\d{3}).*?(\d{2}).*?(\d{2})', self.text_resume)
-                regex = re.compile(("([a-z0-9!#$%&'*+\/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+\/=?^_`"
-                                    "{|}~-]+)*(@|\sat\s)(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(\.|"
-                                    "\sdot\s))+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)"))
-                self.email = re.search(regex, self.text_resume)
-                full_date = re.search(r'(\d{2}(\-| |\/)(\d{2}|января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря)(\-| |\/)\d{4})', self.text_resume)
-                if full_date != None:
-                    date = full_date.group().split()
-                    self.birthday_day = date[0]
-                    RU_MONTH_VALUES = {
-                        'января': 1,
-                        'февраля': 2,
-                        'марта': 3,
-                        'апреля': 4,
-                        'мая': 5,
-                        'июня': 6,
-                        'июля': 7,
-                        'августа': 8,
-                        'сентября': 9,
-                        'октября': 10,
-                        'ноября': 11,
-                        'декабря': 12,}
-                    month = date[1]
-                    self.birthday_month = RU_MONTH_VALUES.get(month)
-                    self.birthday_year = date[2]
+                # self.number = re.search(r'(\+7|8).*?(\d{3}).*?(\d{3}).*?(\d{2}).*?(\d{2})', self.text_resume)
+                # regex = re.compile(("([a-z0-9!#$%&'*+\/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+\/=?^_`"
+                #                     "{|}~-]+)*(@|\sat\s)(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(\.|"
+                #                     "\sdot\s))+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)"))
+                # self.email = re.search(regex, self.text_resume)
+
+    def get_birthday_date(self):
+        full_date = re.search(
+            r'(\d{1,2}(\-| |\/)(\d{2}|января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря)(\-| |\/)\d{4})',
+            self.text_resume)
+        # print(full_date)
+        if full_date != None:
+            date = full_date.group().split()
+            self.birthday_day = date[0]
+            RU_MONTH_VALUES = {
+                'января': 1,
+                'февраля': 2,
+                'марта': 3,
+                'апреля': 4,
+                'мая': 5,
+                'июня': 6,
+                'июля': 7,
+                'августа': 8,
+                'сентября': 9,
+                'октября': 10,
+                'ноября': 11,
+                'декабря': 12, }
+            month = date[1]
+            self.birthday_month = RU_MONTH_VALUES.get(month)
+            self.birthday_year = date[2]
+            print(self.birthday_day, self.birthday_month, self.birthday_year)
+
+    def get_contacnts(self):
+        self.number = re.search(r'(\+7|8).*?(\d{3}).*?(\d{3}).*?(\d{2}).*?(\d{2})', self.text_resume)
+        regex = re.compile(("([a-z0-9!#$%&'*+\/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+\/=?^_`"
+                            "{|}~-]+)*(@|\sat\s)(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(\.|"
+                            "\sdot\s))+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)"))
+        self.email = re.search(regex, self.text_resume)
+        print(self.number, self.email)
 
     def get_image(self):
         if self.path != None:
@@ -203,9 +217,11 @@ class Processing(object):
                         pix = fitz.Pixmap(pdf, xref)
                         if pix.n < 5:   # this is GRAY or RGB
                             pix.writePNG(f"{self.path[:-4]}_{i}{xref}.png")
+                            self.image = f'{self.path[:-4]}_{i}{xref}.png'
                         else:  # CMYK: convert to RGB first
                             pix1 = fitz.Pixmap(fitz.csRGB, pix)
                             pix1.writePNG(f"{self.path[:-4]}_{i}{xref}.png")
+                            self.image = f'{self.path[:-4]}_{i}{xref}.png'
                             pix1 = None
                         pix = None
 

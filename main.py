@@ -150,7 +150,7 @@ class Processing(object):
                             if i.text != '':
                                 full_text = full_text + '\n' + i.text
                         self.text_resume = full_text
-                        self.image = f'{filename[:-4]}.jpg'
+                        self.image = f'{filename[:-4]}jpg'
                         urlretrieve(img, self.image)
                 except:
                     pass
@@ -232,6 +232,9 @@ class Processing(object):
                         pix = None
 
     def add_in_base(self):
+        """
+        This code need split on more function, but i haven't time
+        """
         global id_vacancy
         self.job_seeker.update({'last_name': self.last_name})
         self.job_seeker.update({'first_name': self.first_name})
@@ -326,10 +329,43 @@ class Processing(object):
         url_add_on_vacancy = f'{base_url}account/6/applicants/{self.man_id}/vacancy'
         response = requests.post(url_add_on_vacancy, headers=head, data=vacancy_add) # add client on vacancy with status
         # json_responce = response.json()
+        # if self.image:  # upload image, but not worked. Response [500] {'errors': [{'type': 'server_error'}]}
+        #     files = {
+        #         'file': (os.path.split(self.image)[1], open(os.path.normpath(self.image), 'rb'))
+        #     }
+        #     header = {
+        #         'User-Agent': 'App/1.0 (test@huntflow.ru)',
+        #         'Host': 'api.huntflow.ru',
+        #         'Content-Type': 'multipart/form-data',
+        #         'X-File-Parce': 'true',
+        #         'Authorization': token,
+        #     }
+        #     url_add_files = base_url + 'account/6/upload'
+        #     response = requests.post(url_add_files, headers=header, files=files)
+        # if self.path:     # upload resume file(need one function for file and image), but not worked. Response [500] {'errors': [{'type': 'server_error'}]}
+        #     files = {
+        #         'file': (os.path.split(self.path)[1], open(os.path.normpath(self.path), 'rb'))
+        #     }
+        #     header = {
+        #         'User-Agent': 'App/1.0 (test@huntflow.ru)',
+        #         'Host': 'api.huntflow.ru',
+        #         'Content-Type': 'multipart/form-data',
+        #         'X-File-Parce': 'true',
+        #         'Authorization': token,
+        #     }
+        #     url_add_files = base_url + 'account/6/upload'
+        #     response = requests.post(url_add_files, headers=header, files=files)
 
 if __name__ == '__main__':
-    input_token = f'{sys.argv[2]}'
-    path = sys.argv[1]
+    if os.path.exists(sys.argv[1]):
+        path = sys.argv[1]
+        input_token = f'{sys.argv[2]}'
+    elif os.path.exists(sys.argv[2]):
+        path = sys.argv[2]
+        input_token = f'{sys.argv[1]}'
+    else:
+        sys.exit("Wrong path to base")
+    # Need added condition for check token
     start_dir = os.getcwd()
     token = f'Bearer {input_token}'
     base_url = 'https://dev-100-api.huntflow.ru/'
